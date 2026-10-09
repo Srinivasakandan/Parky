@@ -14,12 +14,13 @@ function switchView(viewId) {
     document.querySelectorAll('.view-section').forEach(sec => sec.style.display = 'none');
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
-    const targetSection = document.getElementById(viewId + 'View');
+    const viewName = viewId.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    const targetSection = document.getElementById(viewName + 'View');
     if (targetSection) {
         targetSection.style.display = 'block';
     }
 
-    const navBtn = document.getElementById('nav' + viewId.charAt(0).toUpperCase() + viewId.slice(1));
+    const navBtn = document.getElementById('nav' + viewName.charAt(0).toUpperCase() + viewName.slice(1));
     if (navBtn) {
         navBtn.classList.add('active');
     }
