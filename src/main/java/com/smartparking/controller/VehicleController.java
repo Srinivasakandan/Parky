@@ -4,6 +4,7 @@ import com.smartparking.dto.ApiResponse;
 import com.smartparking.dto.BillDto;
 import com.smartparking.dto.CustomerSearchResultDto;
 import com.smartparking.dto.VehicleEntryRequestDto;
+import com.smartparking.dto.VehicleEntryResponseDto;
 import com.smartparking.dto.VehicleExitRequestDto;
 import com.smartparking.entity.ParkingRecord;
 import com.smartparking.security.CustomUserDetails;
@@ -24,12 +25,22 @@ public class VehicleController {
     private ParkingService parkingService;
 
     @PostMapping("/entry")
-    public ResponseEntity<ApiResponse<ParkingRecord>> registerEntry(
+    public ResponseEntity<ApiResponse<VehicleEntryResponseDto>> registerEntry(
             @Valid @RequestBody VehicleEntryRequestDto request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String email = userDetails != null ? userDetails.getUsername() : "system";
         ParkingRecord record = parkingService.registerVehicleEntry(request, email);
-        return ResponseEntity.ok(ApiResponse.success("Vehicle entry registered successfully", record));
+
+        // Return a clean DTO instead of the raw JPA entity to avoid serialization issues
+        VehicleEntryResponseDto dto = new VehicleEntryResponseDto(
+                record.getId(),
+                record.getVehicle().getVehicleNumber(),
+                record.getVehicle().getVehicleType().name(),
+                record.getSlot().getSlotNumber(),
+                record.getEntryTime(),
+                record.getStatus().name()
+        );
+        return ResponseEntity.ok(ApiResponse.success("Vehicle entry registered successfully", dto));
     }
 
     @PostMapping("/exit")

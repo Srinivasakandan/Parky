@@ -218,15 +218,16 @@ async function handleVehicleEntry(e) {
         const res = await resp.json();
 
         if (res.success) {
-            alert('Vehicle Parked Successfully!\nAssigned Slot: ' + res.data.slot.slotNumber);
+            alert('Vehicle Parked Successfully!\nAssigned Slot: ' + res.data.slotNumber);
             document.getElementById('entryVehicleNumber').value = '';
             document.getElementById('entryPreferredSlot').value = '';
             switchView('dashboard');
         } else {
-            alert('Parking Error: ' + res.message);
+            alert('Parking Error: ' + (res.message || 'Unknown error from server.'));
         }
     } catch (err) {
-        alert('Error processing vehicle entry');
+        console.error('Error processing vehicle entry:', err);
+        alert('Error processing vehicle entry: ' + (err.message || 'Network or server error.'));
     }
 }
 
@@ -263,7 +264,8 @@ async function lookupExitVehicle() {
             alert('Active parking record not found for vehicle: ' + plate);
         }
     } catch (err) {
-        alert('Error looking up vehicle.');
+        console.error('Error looking up vehicle:', err);
+        alert('Error looking up vehicle: ' + (err.message || 'Network or server error.'));
     }
 }
 
@@ -294,7 +296,8 @@ async function confirmVehicleExit() {
             alert('Exit failed: ' + res.message);
         }
     } catch (err) {
-        alert('Error completing exit');
+        console.error('Error completing vehicle exit:', err);
+        alert('Error completing exit: ' + (err.message || 'Network or server error.'));
     }
 }
 
@@ -601,4 +604,32 @@ function formatDate(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
     return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+// Slot Management Helpers (Slots view — requires ADMIN)
+function openAddSlotModal() {
+    const slotNumber = prompt('Enter new slot number (e.g. D01):');
+    if (!slotNumber || !slotNumber.trim()) return;
+
+    const vehicleType = prompt('Enter vehicle type allowed (CAR / BIKE / SUV / TRUCK / ALL):');
+    if (!vehicleType || !vehicleType.trim()) return;
+
+    fetch('/api/parking-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slotNumber: slotNumber.trim().toUpperCase(), vehicleTypeAllowed: vehicleType.trim().toUpperCase(), status: 'AVAILABLE' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            alert('Slot ' + slotNumber.toUpperCase() + ' created successfully!');
+            loadParkingSlots();
+        } else {
+            alert('Failed to create slot: ' + (res.message || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        console.error('Error creating slot:', err);
+        alert('Error creating slot: ' + (err.message || 'Network error'));
+    });
 }
