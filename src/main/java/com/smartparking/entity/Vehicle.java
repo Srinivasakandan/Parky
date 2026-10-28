@@ -1,25 +1,13 @@
 package com.smartparking.entity;
 
 import com.smartparking.util.VehicleType;
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "vehicles")
 public class Vehicle {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "vehicle_number", nullable = false, unique = true)
     private String vehicleNumber;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "vehicle_type", nullable = false)
     private VehicleType vehicleType;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public Vehicle() {}
@@ -28,6 +16,13 @@ public class Vehicle {
         this.vehicleNumber = vehicleNumber != null ? vehicleNumber.toUpperCase().trim() : null;
         this.vehicleType = vehicleType;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public Vehicle(Long id, String vehicleNumber, VehicleType vehicleType, LocalDateTime createdAt) {
+        this.id = id;
+        this.vehicleNumber = vehicleNumber != null ? vehicleNumber.toUpperCase().trim() : null;
+        this.vehicleType = vehicleType;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
     }
 
     public Long getId() { return id; }

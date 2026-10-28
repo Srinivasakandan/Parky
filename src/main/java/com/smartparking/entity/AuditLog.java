@@ -1,29 +1,14 @@
 package com.smartparking.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "audit_logs")
 public class AuditLog {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "user_id")
     private Long userId;
-
-    @Column(name = "user_email")
     private String userEmail;
-
-    @Column(nullable = false)
     private String action;
-
-    @Column(length = 1000)
     private String description;
-
-    @Column(nullable = false)
     private LocalDateTime timestamp = LocalDateTime.now();
 
     public AuditLog() {}
@@ -34,6 +19,15 @@ public class AuditLog {
         this.action = action;
         this.description = description;
         this.timestamp = LocalDateTime.now();
+    }
+
+    public AuditLog(Long id, Long userId, String userEmail, String action, String description, LocalDateTime timestamp) {
+        this.id = id;
+        this.userId = userId;
+        this.userEmail = userEmail;
+        this.action = action;
+        this.description = description;
+        this.timestamp = timestamp != null ? timestamp : LocalDateTime.now();
     }
 
     public Long getId() { return id; }

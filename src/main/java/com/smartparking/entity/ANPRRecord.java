@@ -1,29 +1,14 @@
 package com.smartparking.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "anpr_records")
 public class ANPRRecord {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "vehicle_number", nullable = false)
     private String vehicleNumber;
-
-    @Column(nullable = false)
     private String confidence;
-
-    @Column(name = "recognition_status", nullable = false)
     private String recognitionStatus;
-
-    @Column(nullable = false)
     private String source = "MOCK";
-
-    @Column(name = "captured_at", nullable = false)
     private LocalDateTime capturedAt = LocalDateTime.now();
 
     public ANPRRecord() {}
@@ -34,6 +19,15 @@ public class ANPRRecord {
         this.recognitionStatus = recognitionStatus;
         this.source = source;
         this.capturedAt = LocalDateTime.now();
+    }
+
+    public ANPRRecord(Long id, String vehicleNumber, String confidence, String recognitionStatus, String source, LocalDateTime capturedAt) {
+        this.id = id;
+        this.vehicleNumber = vehicleNumber != null ? vehicleNumber.toUpperCase().trim() : null;
+        this.confidence = confidence;
+        this.recognitionStatus = recognitionStatus;
+        this.source = source;
+        this.capturedAt = capturedAt != null ? capturedAt : LocalDateTime.now();
     }
 
     public Long getId() { return id; }

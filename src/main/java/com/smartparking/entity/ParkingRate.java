@@ -1,33 +1,16 @@
 package com.smartparking.entity;
 
 import com.smartparking.util.VehicleType;
-
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "parking_rates")
 public class ParkingRate {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "vehicle_type", nullable = false, unique = true)
     private VehicleType vehicleType;
-
-    @Column(name = "rate_per_hour", nullable = false, precision = 10, scale = 2)
     private BigDecimal ratePerHour;
-
-    @Column(nullable = false)
     private String status = "ACTIVE";
-
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     public ParkingRate() {}
@@ -38,6 +21,15 @@ public class ParkingRate {
         this.status = "ACTIVE";
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public ParkingRate(Long id, VehicleType vehicleType, BigDecimal ratePerHour, String status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.vehicleType = vehicleType;
+        this.ratePerHour = ratePerHour;
+        this.status = status;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
     }
 
     public Long getId() { return id; }

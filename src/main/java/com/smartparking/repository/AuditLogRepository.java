@@ -1,12 +1,13 @@
 package com.smartparking.repository;
 
 import com.smartparking.entity.AuditLog;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
+import java.util.Optional;
 
-@Repository
-public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+public interface AuditLogRepository {
+    Optional<AuditLog> findById(Long id);
+    List<AuditLog> findAll();
+    AuditLog save(AuditLog log);
     List<AuditLog> findAllByOrderByTimestampDesc();
+    long count();
 }

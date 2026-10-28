@@ -2,35 +2,16 @@ package com.smartparking.entity;
 
 import com.smartparking.util.UserRole;
 import com.smartparking.util.UserStatus;
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "users")
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(nullable = false)
     private String name;
-
-    @Column(nullable = false, unique = true)
     private String email;
-
-    @Column(nullable = false)
     private String password;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private UserRole role;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public User() {}
@@ -42,6 +23,16 @@ public class User {
         this.role = role;
         this.status = status;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public User(Long id, String name, String email, String password, UserRole role, UserStatus status, LocalDateTime createdAt) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.status = status;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
     }
 
     public Long getId() { return id; }

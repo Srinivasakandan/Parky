@@ -2,12 +2,13 @@ package com.smartparking.repository;
 
 import com.smartparking.entity.ParkingRate;
 import com.smartparking.util.VehicleType;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
+import java.util.List;
 import java.util.Optional;
 
-@Repository
-public interface ParkingRateRepository extends JpaRepository<ParkingRate, Long> {
+public interface ParkingRateRepository {
+    Optional<ParkingRate> findById(Long id);
+    List<ParkingRate> findAll();
+    ParkingRate save(ParkingRate parkingRate);
     Optional<ParkingRate> findByVehicleType(VehicleType vehicleType);
+    long count();
 }

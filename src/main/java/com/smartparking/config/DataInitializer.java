@@ -8,10 +8,13 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import org.springframework.core.annotation.Order;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Component
+@Order(2)
 public class DataInitializer implements CommandLineRunner {
 
     @Autowired

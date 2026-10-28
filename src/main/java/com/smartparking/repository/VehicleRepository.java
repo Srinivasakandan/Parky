@@ -1,14 +1,15 @@
 package com.smartparking.repository;
 
 import com.smartparking.entity.Vehicle;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
+import java.util.List;
 import java.util.Optional;
 
-@Repository
-public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
+public interface VehicleRepository {
+    Optional<Vehicle> findById(Long id);
+    List<Vehicle> findAll();
+    Vehicle save(Vehicle vehicle);
     Optional<Vehicle> findByVehicleNumber(String vehicleNumber);
     Optional<Vehicle> findByVehicleNumberIgnoreCase(String vehicleNumber);
     boolean existsByVehicleNumber(String vehicleNumber);
+    long count();
 }

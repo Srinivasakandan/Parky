@@ -1,43 +1,19 @@
 package com.smartparking.entity;
 
 import com.smartparking.util.ParkingRecordStatus;
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "parking_records")
 public class ParkingRecord {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "slot_id", nullable = false)
     private ParkingSlot slot;
-
-    @Column(name = "entry_time", nullable = false)
     private LocalDateTime entryTime;
-
-    @Column(name = "exit_time")
     private LocalDateTime exitTime;
-
-    @Column(name = "duration_minutes")
     private Long durationMinutes;
-
-    @Column(name = "parking_fee", precision = 10, scale = 2)
     private BigDecimal parkingFee;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private ParkingRecordStatus status = ParkingRecordStatus.PARKED;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public ParkingRecord() {}
@@ -48,6 +24,19 @@ public class ParkingRecord {
         this.entryTime = entryTime;
         this.status = status;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public ParkingRecord(Long id, Vehicle vehicle, ParkingSlot slot, LocalDateTime entryTime, LocalDateTime exitTime,
+                         Long durationMinutes, BigDecimal parkingFee, ParkingRecordStatus status, LocalDateTime createdAt) {
+        this.id = id;
+        this.vehicle = vehicle;
+        this.slot = slot;
+        this.entryTime = entryTime;
+        this.exitTime = exitTime;
+        this.durationMinutes = durationMinutes;
+        this.parkingFee = parkingFee;
+        this.status = status;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
     }
 
     public Long getId() { return id; }
