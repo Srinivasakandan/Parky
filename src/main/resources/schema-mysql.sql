@@ -94,3 +94,38 @@ CREATE INDEX idx_pr_status ON parking_records(status);
 CREATE INDEX idx_payments_paid_at ON payments(paid_at);
 CREATE INDEX idx_audit_timestamp ON audit_logs(timestamp);
 CREATE INDEX idx_anpr_captured_at ON anpr_records(captured_at);
+
+-- ====================================================================
+-- 9. Triggers: Automatic Slot Status Management
+-- ====================================================================
+
+DELIMITER $$
+
+-- Trigger 1: Automatically set slot to OCCUPIED when a vehicle enters
+DROP TRIGGER IF EXISTS trg_after_parking_entry$$
+CREATE TRIGGER trg_after_parking_entry
+AFTER INSERT ON parking_records
+FOR EACH ROW
+BEGIN
+    IF NEW.status = 'PARKED' THEN
+        UPDATE parking_slots 
+        SET status = 'OCCUPIED' 
+        WHERE id = NEW.slot_id;
+    END IF;
+END$$
+
+-- Trigger 2: Automatically set slot to AVAILABLE when a vehicle exits
+DROP TRIGGER IF EXISTS trg_after_parking_exit$$
+CREATE TRIGGER trg_after_parking_exit
+AFTER UPDATE ON parking_records
+FOR EACH ROW
+BEGIN
+    IF NEW.status IN ('EXITED', 'COMPLETED') AND OLD.status = 'PARKED' THEN
+        UPDATE parking_slots 
+        SET status = 'AVAILABLE' 
+        WHERE id = NEW.slot_id;
+    END IF;
+END$$
+
+DELIMITER ;
+

@@ -67,8 +67,8 @@ public class ParkingService {
         ParkingRecord record = new ParkingRecord(vehicle, slot, entryTime, ParkingRecordStatus.PARKED);
         ParkingRecord savedRecord = parkingRecordRepository.save(record);
 
-        // 5. Set slot = OCCUPIED
-        parkingSlotService.updateSlotStatus(slot, SlotStatus.OCCUPIED);
+        // 5. Slot status update (AVAILABLE -> OCCUPIED) is handled automatically by DB trigger 'trg_after_parking_entry'
+        slot.setStatus(SlotStatus.OCCUPIED);
 
         // 6. Log Audit
         auditLogService.logAction(null, performedByEmail, "VEHICLE_ENTRY",
@@ -105,8 +105,8 @@ public class ParkingService {
         PaymentRequestDto paymentRequest = new PaymentRequestDto(updatedRecord.getId(), fee, request.getPaymentMethod());
         Payment payment = paymentService.processPayment(paymentRequest, performedByEmail);
 
-        // 6. Free parking slot (OCCUPIED -> AVAILABLE)
-        parkingSlotService.updateSlotStatus(record.getSlot(), SlotStatus.AVAILABLE);
+        // 6. Slot release (OCCUPIED -> AVAILABLE) is handled automatically by DB trigger 'trg_after_parking_exit'
+        record.getSlot().setStatus(SlotStatus.AVAILABLE);
 
         // 7. Log Audit
         auditLogService.logAction(null, performedByEmail, "VEHICLE_EXIT",
