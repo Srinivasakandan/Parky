@@ -29,7 +29,7 @@ public class JdbcParkingRecordRepository implements ParkingRecordRepository {
     private JdbcTemplate jdbcTemplate;
 
     private static final String BASE_SELECT =
-            "SELECT pr.id, pr.entry_time, pr.exit_time, pr.duration_minutes, pr.parking_fee, pr.status, pr.created_at, " +
+            "SELECT pr.id, pr.entry_time, pr.exit_time, pr.duration_minutes, pr.parking_fee, pr.status, pr.entered_by, pr.exited_by, pr.created_at, " +
             "v.id AS v_id, v.vehicle_number AS v_number, v.vehicle_type AS v_type, v.created_at AS v_created_at, " +
             "ps.id AS ps_id, ps.slot_number AS ps_number, ps.vehicle_type_allowed AS ps_type, ps.status AS ps_status " +
             "FROM parking_records pr " +
@@ -67,6 +67,8 @@ public class JdbcParkingRecordRepository implements ParkingRecordRepository {
                 durationMinutes,
                 rs.getBigDecimal("parking_fee"),
                 ParkingRecordStatus.valueOf(rs.getString("status")),
+                rs.getString("entered_by"),
+                rs.getString("exited_by"),
                 createdTs != null ? createdTs.toLocalDateTime() : null
         );
     };
@@ -91,8 +93,8 @@ public class JdbcParkingRecordRepository implements ParkingRecordRepository {
     @Override
     public ParkingRecord save(ParkingRecord record) {
         if (record.getId() == null) {
-            String sql = "INSERT INTO parking_records (vehicle_id, slot_id, entry_time, exit_time, duration_minutes, parking_fee, status, created_at) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO parking_records (vehicle_id, slot_id, entry_time, exit_time, duration_minutes, parking_fee, status, entered_by, exited_by, created_at) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             KeyHolder keyHolder = new GeneratedKeyHolder();
             LocalDateTime now = record.getCreatedAt() != null ? record.getCreatedAt() : LocalDateTime.now();
             record.setCreatedAt(now);
@@ -110,23 +112,20 @@ public class JdbcParkingRecordRepository implements ParkingRecordRepository {
                 }
                 ps.setBigDecimal(6, record.getParkingFee());
                 ps.setString(7, record.getStatus().name());
-                ps.setTimestamp(8, Timestamp.valueOf(now));
+                ps.setString(8, record.getEnteredBy());
+                ps.setString(9, record.getExitedBy());
+                ps.setTimestamp(10, Timestamp.valueOf(now));
                 return ps;
             }, keyHolder);
 
-            Number key = keyHolder.getKey();
-            if (key != null) {
-                record.setId(key.longValue());
-            } else if (keyHolder.getKeys() != null && !keyHolder.getKeys().isEmpty()) {
-                Object val = keyHolder.getKeys().values().iterator().next();
-                if (val instanceof Number num) {
-                    record.setId(num.longValue());
-                }
+            Long id = com.smartparking.util.KeyHolderUtils.extractGeneratedId(keyHolder);
+            if (id != null) {
+                record.setId(id);
             }
             return record;
         } else {
             String sql = "UPDATE parking_records SET vehicle_id = ?, slot_id = ?, entry_time = ?, exit_time = ?, " +
-                    "duration_minutes = ?, parking_fee = ?, status = ? WHERE id = ?";
+                    "duration_minutes = ?, parking_fee = ?, status = ?, entered_by = ?, exited_by = ? WHERE id = ?";
             jdbcTemplate.update(connection -> {
                 PreparedStatement ps = connection.prepareStatement(sql);
                 ps.setLong(1, record.getVehicle().getId());
@@ -140,7 +139,9 @@ public class JdbcParkingRecordRepository implements ParkingRecordRepository {
                 }
                 ps.setBigDecimal(6, record.getParkingFee());
                 ps.setString(7, record.getStatus().name());
-                ps.setLong(8, record.getId());
+                ps.setString(8, record.getEnteredBy());
+                ps.setString(9, record.getExitedBy());
+                ps.setLong(10, record.getId());
                 return ps;
             });
             return record;

@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS parking_records (
     duration_minutes BIGINT DEFAULT NULL,
     parking_fee DECIMAL(10, 2) DEFAULT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PARKED',
+    entered_by VARCHAR(100) DEFAULT NULL,
+    exited_by VARCHAR(100) DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_pr_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
     CONSTRAINT fk_pr_slot FOREIGN KEY (slot_id) REFERENCES parking_slots(id)

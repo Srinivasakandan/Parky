@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Pattern;
 public class VehicleEntryRequestDto {
 
     @NotBlank(message = "Vehicle number is required")
-    @Pattern(regexp = "^[A-Za-z0-9]{4,15}$", message = "Vehicle number must be 4 to 15 alphanumeric characters")
+    @Pattern(regexp = "^[A-Za-z0-9 -]{4,20}$", message = "Vehicle number must be 4 to 20 valid characters")
     private String vehicleNumber;
 
     @NotNull(message = "Vehicle type is required")

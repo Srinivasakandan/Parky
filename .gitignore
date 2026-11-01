@@ -18,11 +18,9 @@ target/
 hs_err_pid*
 replay_pid*
 
-# Sensitive configuration files (passwords, credentials)
-src/main/resources/application.properties
-src/main/resources/application-*.properties
-application.properties
-application-*.properties
+# Sensitive local configuration files (optional local overrides)
+application-local.properties
+application-secret.properties
 
 # JDK or IDE specific files
 src/git/oracleJdk-27/

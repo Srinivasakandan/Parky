@@ -67,14 +67,9 @@ public class JdbcVehicleRepository implements VehicleRepository {
                 return ps;
             }, keyHolder);
 
-            Number key = keyHolder.getKey();
-            if (key != null) {
-                vehicle.setId(key.longValue());
-            } else if (keyHolder.getKeys() != null && !keyHolder.getKeys().isEmpty()) {
-                Object val = keyHolder.getKeys().values().iterator().next();
-                if (val instanceof Number num) {
-                    vehicle.setId(num.longValue());
-                }
+            Long id = com.smartparking.util.KeyHolderUtils.extractGeneratedId(keyHolder);
+            if (id != null) {
+                vehicle.setId(id);
             }
             return vehicle;
         } else {

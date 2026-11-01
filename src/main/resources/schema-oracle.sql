@@ -50,6 +50,8 @@ CREATE TABLE parking_records (
     duration_minutes NUMBER,
     parking_fee NUMBER(10, 2),
     status VARCHAR2(20) DEFAULT 'PARKED' NOT NULL,
+    entered_by VARCHAR2(100),
+    exited_by VARCHAR2(100),
     created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
 );
 

@@ -204,13 +204,71 @@
             <!-- ENTRY TAB -->
             <div id="entryTab" class="tab-content active">
                 <div class="glass-panel" style="max-width: 600px; margin: 0 auto;">
-                    <h3><i class="fa-solid fa-file-signature"></i> Enter Vehicle Details</h3>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Record vehicle entry and automatically assign an available parking slot.</p>
+                    <h3><i class="fa-solid fa-file-signature"></i> Vehicle Entry (Employee Portal)</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">Scan number plate via mobile camera or type registration number manually.</p>
 
+                    <!-- Input Mode Toggle -->
+                    <div class="mode-toggle-group">
+                        <button type="button" class="btn active" id="entryModeScanBtn" onclick="toggleInputMode('entry', 'scan')">
+                            <i class="fa-solid fa-camera"></i> Scan Number Plate
+                        </button>
+                        <button type="button" class="btn" id="entryModeManualBtn" onclick="toggleInputMode('entry', 'manual')">
+                            <i class="fa-solid fa-keyboard"></i> Manual Entry
+                        </button>
+                    </div>
+
+                    <!-- Camera Scanner Container (Scan Mode) -->
+                    <div id="entryCameraSection">
+                        <div class="camera-container" id="entryCameraBox">
+                            <video id="entryVideo" class="camera-preview-video" autoplay playsinline muted style="display: none;"></video>
+                            <canvas id="entryCanvas" style="display: none;"></canvas>
+                            <img id="entryCapturedImg" class="camera-captured-img" style="display: none;" alt="Captured Plate Preview">
+                            <div id="entryScannerOverlay" class="scanner-overlay" style="display: none;"></div>
+
+                            <div id="entryCameraPlaceholder" style="text-align: center; padding: 2rem;">
+                                <i class="fa-solid fa-camera" style="font-size: 2.5rem; color: var(--secondary); margin-bottom: 0.5rem;"></i>
+                                <p style="color: var(--text-muted); font-size: 0.9rem;">Mobile Rear Camera & ANPR Scanner</p>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">Uses high-resolution OCR engine</span>
+                            </div>
+                        </div>
+
+                        <div class="camera-controls">
+                            <button type="button" class="btn btn-primary" id="entryStartCamBtn" onclick="startCamera('entry')">
+                                <i class="fa-solid fa-video"></i> Open Camera
+                            </button>
+                            <button type="button" class="btn btn-warning" id="entryCaptureBtn" onclick="captureCameraPhoto('entry')" style="display: none;">
+                                <i class="fa-solid fa-circle-dot"></i> Capture Image
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="entryRetakeBtn" onclick="retakeCameraPhoto('entry')" style="display: none;">
+                                <i class="fa-solid fa-rotate-left"></i> Retake Image
+                            </button>
+                            <button type="button" class="btn btn-success" id="entrySubmitOcrBtn" onclick="submitImageForOcr('entry')" style="display: none;">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Submit Image
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('entryFileInput').click()">
+                                <i class="fa-solid fa-upload"></i> Upload Image
+                            </button>
+                            <input type="file" id="entryFileInput" accept="image/*" style="display: none;" onchange="handleImageFileChosen(event, 'entry')">
+                        </div>
+
+                        <div id="entryOcrSpinner" style="display: none; text-align: center; margin-bottom: 1rem; color: var(--info);">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Processing ANPR image & detecting plate...
+                        </div>
+                        <div id="entryCameraError" class="validation-feedback invalid" style="display: none; margin-bottom: 1rem;"></div>
+                    </div>
+
+                    <!-- Vehicle Form -->
                     <form onsubmit="handleVehicleEntry(event)">
                         <div class="form-group">
-                            <label class="form-label">Vehicle Number</label>
-                            <input type="text" id="entryVehicleNumber" class="form-control" placeholder="e.g. TN01AB1234" required style="text-transform: uppercase; font-size: 1.05rem;" pattern="[A-Za-z0-9]{4,15}">
+                            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Vehicle Registration Number</span>
+                                <div class="anpr-badge-group">
+                                    <span id="entryConfidenceBadge" class="badge badge-info" style="display: none;">OCR: 96%</span>
+                                    <span id="entryFormatBadge" class="badge badge-success" style="display: none;">Valid Format</span>
+                                </div>
+                            </label>
+                            <input type="text" id="entryVehicleNumber" class="form-control" placeholder="e.g. TN01AB1234 or 22BH1234AA" required style="text-transform: uppercase; font-size: 1.1rem; font-weight: 600; letter-spacing: 1px;" oninput="onVehicleNumberChanged('entry')">
+                            <div id="entryValidationFeedback" class="validation-feedback" style="display: none;"></div>
                         </div>
 
                         <div class="form-group">
@@ -228,8 +286,8 @@
                             <input type="text" id="entryPreferredSlot" class="form-control" placeholder="e.g. A01" style="text-transform: uppercase;">
                         </div>
 
-                        <button type="submit" class="btn btn-success" style="width: 100%; font-size: 1.1rem; padding: 0.85rem;">
-                            <i class="fa-solid fa-square-check"></i> Park Vehicle
+                        <button type="submit" id="entrySubmitBtn" class="btn btn-success" style="width: 100%; font-size: 1.1rem; padding: 0.85rem;">
+                            <i class="fa-solid fa-square-check"></i> Confirm Vehicle Entry
                         </button>
                     </form>
                 </div>
@@ -238,12 +296,72 @@
             <!-- EXIT TAB -->
             <div id="exitTab" class="tab-content">
                 <div class="glass-panel" style="max-width: 650px; margin: 0 auto;">
-                    <h3><i class="fa-solid fa-receipt"></i> Process Vehicle Exit & Bill</h3>
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Enter vehicle number to calculate duration, calculate parking fee, process payment, and release slot.</p>
-                    
-                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
-                        <input type="text" id="exitVehicleSearchInput" class="form-control" placeholder="Enter Vehicle Number e.g. TN01AB1234" style="text-transform: uppercase; font-size: 1.05rem;">
-                        <button class="btn btn-primary" onclick="lookupExitVehicle()"><i class="fa-solid fa-search"></i> Find Vehicle</button>
+                    <h3><i class="fa-solid fa-receipt"></i> Process Vehicle Exit & Bill (Employee Portal)</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">Scan number plate or enter vehicle number to calculate duration, generate bill, and release slot.</p>
+
+                    <!-- Input Mode Toggle -->
+                    <div class="mode-toggle-group">
+                        <button type="button" class="btn active" id="exitModeScanBtn" onclick="toggleInputMode('exit', 'scan')">
+                            <i class="fa-solid fa-camera"></i> Scan Number Plate
+                        </button>
+                        <button type="button" class="btn" id="exitModeManualBtn" onclick="toggleInputMode('exit', 'manual')">
+                            <i class="fa-solid fa-keyboard"></i> Manual Entry
+                        </button>
+                    </div>
+
+                    <!-- Camera Scanner Container (Exit Scan Mode) -->
+                    <div id="exitCameraSection">
+                        <div class="camera-container" id="exitCameraBox">
+                            <video id="exitVideo" class="camera-preview-video" autoplay playsinline muted style="display: none;"></video>
+                            <canvas id="exitCanvas" style="display: none;"></canvas>
+                            <img id="exitCapturedImg" class="camera-captured-img" style="display: none;" alt="Captured Plate Preview">
+                            <div id="exitScannerOverlay" class="scanner-overlay" style="display: none;"></div>
+
+                            <div id="exitCameraPlaceholder" style="text-align: center; padding: 2rem;">
+                                <i class="fa-solid fa-camera" style="font-size: 2.5rem; color: var(--secondary); margin-bottom: 0.5rem;"></i>
+                                <p style="color: var(--text-muted); font-size: 0.9rem;">Mobile Rear Camera & ANPR Scanner</p>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">Recognizes number plate automatically</span>
+                            </div>
+                        </div>
+
+                        <div class="camera-controls">
+                            <button type="button" class="btn btn-primary" id="exitStartCamBtn" onclick="startCamera('exit')">
+                                <i class="fa-solid fa-video"></i> Open Camera
+                            </button>
+                            <button type="button" class="btn btn-warning" id="exitCaptureBtn" onclick="captureCameraPhoto('exit')" style="display: none;">
+                                <i class="fa-solid fa-circle-dot"></i> Capture Image
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="exitRetakeBtn" onclick="retakeCameraPhoto('exit')" style="display: none;">
+                                <i class="fa-solid fa-rotate-left"></i> Retake Image
+                            </button>
+                            <button type="button" class="btn btn-success" id="exitSubmitOcrBtn" onclick="submitImageForOcr('exit')" style="display: none;">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Submit Image
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('exitFileInput').click()">
+                                <i class="fa-solid fa-upload"></i> Upload Image
+                            </button>
+                            <input type="file" id="exitFileInput" accept="image/*" style="display: none;" onchange="handleImageFileChosen(event, 'exit')">
+                        </div>
+
+                        <div id="exitOcrSpinner" style="display: none; text-align: center; margin-bottom: 1rem; color: var(--info);">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Processing ANPR image & detecting plate...
+                        </div>
+                        <div id="exitCameraError" class="validation-feedback invalid" style="display: none; margin-bottom: 1rem;"></div>
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Vehicle Number (Editable)</span>
+                            <div class="anpr-badge-group">
+                                <span id="exitConfidenceBadge" class="badge badge-info" style="display: none;">OCR: 96%</span>
+                                <span id="exitFormatBadge" class="badge badge-success" style="display: none;">Valid Format</span>
+                            </div>
+                        </label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="text" id="exitVehicleSearchInput" class="form-control" placeholder="e.g. TN01AB1234 or 22BH1234AA" style="text-transform: uppercase; font-size: 1.1rem; font-weight: 600; letter-spacing: 1px;" oninput="onVehicleNumberChanged('exit')">
+                            <button class="btn btn-primary" onclick="lookupExitVehicle()"><i class="fa-solid fa-search"></i> Find Vehicle</button>
+                        </div>
+                        <div id="exitValidationFeedback" class="validation-feedback" style="display: none;"></div>
                     </div>
 
                     <div id="exitBillDetailsCard" style="display: none; padding: 1.5rem; background: rgba(15, 23, 42, 0.8); border-radius: 12px; border: 1px solid var(--border-color);">

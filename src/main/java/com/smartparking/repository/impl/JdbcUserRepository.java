@@ -74,14 +74,9 @@ public class JdbcUserRepository implements UserRepository {
                 return ps;
             }, keyHolder);
 
-            Number key = keyHolder.getKey();
-            if (key != null) {
-                user.setId(key.longValue());
-            } else if (keyHolder.getKeys() != null && !keyHolder.getKeys().isEmpty()) {
-                Object val = keyHolder.getKeys().values().iterator().next();
-                if (val instanceof Number num) {
-                    user.setId(num.longValue());
-                }
+            Long id = com.smartparking.util.KeyHolderUtils.extractGeneratedId(keyHolder);
+            if (id != null) {
+                user.setId(id);
             }
             return user;
         } else {

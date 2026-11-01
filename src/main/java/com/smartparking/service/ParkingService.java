@@ -14,6 +14,7 @@ import com.smartparking.exception.VehicleNotFoundException;
 import com.smartparking.repository.ParkingRecordRepository;
 import com.smartparking.util.ParkingRecordStatus;
 import com.smartparking.util.SlotStatus;
+import com.smartparking.util.VehicleNumberValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +47,15 @@ public class ParkingService {
 
     @Transactional
     public ParkingRecord registerVehicleEntry(VehicleEntryRequestDto request, String performedByEmail) {
-        String normalizedNumber = request.getVehicleNumber().trim().toUpperCase();
+        String cleanedNumber = VehicleNumberValidator.clean(request.getVehicleNumber());
+
+        // Validate Indian vehicle registration format using Java Regex
+        VehicleNumberValidator.ValidationResult valResult = VehicleNumberValidator.validate(cleanedNumber);
+        if (!valResult.isValid()) {
+            throw new IllegalArgumentException(valResult.getMessage());
+        }
+
+        String normalizedNumber = valResult.getNormalizedNumber();
 
         // 1. Business Rule: Check if vehicle is already parked
         Optional<ParkingRecord> existingActive = parkingRecordRepository.findByVehicleVehicleNumberAndStatus(
@@ -62,9 +71,9 @@ public class ParkingService {
         // 3. Find available slot
         ParkingSlot slot = parkingSlotService.findAvailableSlot(request.getVehicleType(), request.getPreferredSlotNumber());
 
-        // 4. Create record with automatically generated entry time
+        // 4. Create record with automatically generated entry time and employee tracking
         LocalDateTime entryTime = LocalDateTime.now();
-        ParkingRecord record = new ParkingRecord(vehicle, slot, entryTime, ParkingRecordStatus.PARKED);
+        ParkingRecord record = new ParkingRecord(vehicle, slot, entryTime, ParkingRecordStatus.PARKED, performedByEmail);
         ParkingRecord savedRecord = parkingRecordRepository.save(record);
 
         // 5. Slot status update (AVAILABLE -> OCCUPIED) is handled automatically by DB trigger 'trg_after_parking_entry'
@@ -72,14 +81,22 @@ public class ParkingService {
 
         // 6. Log Audit
         auditLogService.logAction(null, performedByEmail, "VEHICLE_ENTRY",
-                "Vehicle " + normalizedNumber + " entered and assigned slot " + slot.getSlotNumber());
+                "Vehicle " + normalizedNumber + " entered and assigned slot " + slot.getSlotNumber() + " (Processed by " + performedByEmail + ")");
 
         return savedRecord;
     }
 
     @Transactional
     public BillDto processVehicleExit(VehicleExitRequestDto request, String performedByEmail) {
-        String normalizedNumber = request.getVehicleNumber().trim().toUpperCase();
+        String cleanedNumber = VehicleNumberValidator.clean(request.getVehicleNumber());
+
+        // Validate Indian vehicle registration format using Java Regex
+        VehicleNumberValidator.ValidationResult valResult = VehicleNumberValidator.validate(cleanedNumber);
+        if (!valResult.isValid()) {
+            throw new IllegalArgumentException(valResult.getMessage());
+        }
+
+        String normalizedNumber = valResult.getNormalizedNumber();
 
         // 1. Search active parking record
         ParkingRecord record = parkingRecordRepository.findByVehicleVehicleNumberAndStatus(
@@ -97,8 +114,9 @@ public class ParkingService {
         BigDecimal fee = billingService.calculateFee(record.getVehicle().getVehicleType(), durationMins);
         record.setParkingFee(fee);
 
-        // 4. Update status = EXITED
+        // 4. Update status = EXITED and record employee responsible
         record.setStatus(ParkingRecordStatus.EXITED);
+        record.setExitedBy(performedByEmail);
         ParkingRecord updatedRecord = parkingRecordRepository.save(record);
 
         // 5. Process payment simulation
@@ -110,7 +128,7 @@ public class ParkingService {
 
         // 7. Log Audit
         auditLogService.logAction(null, performedByEmail, "VEHICLE_EXIT",
-                "Vehicle " + normalizedNumber + " exited from slot " + record.getSlot().getSlotNumber() + ". Fee: ₹" + fee);
+                "Vehicle " + normalizedNumber + " exited from slot " + record.getSlot().getSlotNumber() + ". Fee: ₹" + fee + " (Processed by " + performedByEmail + ")");
 
         return billingService.generateBillDto(updatedRecord);
     }

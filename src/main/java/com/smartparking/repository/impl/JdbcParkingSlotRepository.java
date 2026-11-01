@@ -61,14 +61,9 @@ public class JdbcParkingSlotRepository implements ParkingSlotRepository {
                 return ps;
             }, keyHolder);
 
-            Number key = keyHolder.getKey();
-            if (key != null) {
-                slot.setId(key.longValue());
-            } else if (keyHolder.getKeys() != null && !keyHolder.getKeys().isEmpty()) {
-                Object val = keyHolder.getKeys().values().iterator().next();
-                if (val instanceof Number num) {
-                    slot.setId(num.longValue());
-                }
+            Long id = com.smartparking.util.KeyHolderUtils.extractGeneratedId(keyHolder);
+            if (id != null) {
+                slot.setId(id);
             }
             return slot;
         } else {

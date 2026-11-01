@@ -126,14 +126,9 @@ public class JdbcPaymentRepository implements PaymentRepository {
                 return ps;
             }, keyHolder);
 
-            Number key = keyHolder.getKey();
-            if (key != null) {
-                payment.setId(key.longValue());
-            } else if (keyHolder.getKeys() != null && !keyHolder.getKeys().isEmpty()) {
-                Object val = keyHolder.getKeys().values().iterator().next();
-                if (val instanceof Number num) {
-                    payment.setId(num.longValue());
-                }
+            Long id = com.smartparking.util.KeyHolderUtils.extractGeneratedId(keyHolder);
+            if (id != null) {
+                payment.setId(id);
             }
             return payment;
         } else {

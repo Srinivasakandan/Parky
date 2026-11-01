@@ -1,0 +1,7 @@
+target/
+.git/
+.gitignore
+*.pptx
+.idea/
+*.iml
+*.log

@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // View Navigation Handler
 function switchView(viewId) {
+    stopAllCameras();
     document.querySelectorAll('.view-section').forEach(sec => sec.style.display = 'none');
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -40,6 +41,7 @@ function switchView(viewId) {
 }
 
 function switchTab(tabId, btnElement) {
+    stopAllCameras();
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -191,23 +193,338 @@ async function handleCustomerSearch(e) {
     }
 }
 
+// ====================================================================
+// ANPR Mobile Camera & Format Validation Logic
+// ====================================================================
+
+const INDIAN_STATE_CODES = new Set([
+    "AN", "AP", "AR", "AS", "BR", "CG", "CH", "DD", "DL", "DN",
+    "GA", "GJ", "HP", "HR", "JH", "JK", "KA", "KL", "LA", "LD",
+    "MH", "ML", "MN", "MP", "MZ", "NL", "OD", "PB", "PY", "RJ",
+    "SK", "TN", "TR", "TS", "UK", "UP", "WB"
+]);
+
+const cameraStreams = { entry: null, exit: null };
+const capturedBlobs = { entry: null, exit: null };
+
+function validateIndianRegistration(rawInput) {
+    if (!rawInput || !rawInput.trim()) {
+        return { valid: false, message: "Vehicle registration number cannot be empty." };
+    }
+    const cleaned = rawInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    if (cleaned.length < 6 || cleaned.length > 11) {
+        return { valid: false, cleaned, message: "Invalid length (" + cleaned.length + " chars). Must be between 6 and 11 characters." };
+    }
+
+    // Bharat Series: YY BH #### XX (e.g. 21BH1234AA)
+    const bhMatch = cleaned.match(/^(\d{2})BH(\d{4})([A-Z]{1,2})$/);
+    if (bhMatch) {
+        const yr = parseInt(bhMatch[1], 10);
+        if (yr >= 21) {
+            return { valid: true, cleaned, formatType: "Bharat Series (BH)", message: "Valid Bharat Series (BH) registration format." };
+        }
+    }
+
+    // Standard State Format: e.g. TN01AB1234, DL01A1234
+    const stdMatch = cleaned.match(/^([A-Z]{2})(\d{1,2})([A-Z]{0,3})(\d{1,4})$/);
+    if (stdMatch) {
+        const st = stdMatch[1];
+        if (INDIAN_STATE_CODES.has(st)) {
+            return { valid: true, cleaned, formatType: "Standard (" + st + ")", message: "Valid standard Indian registration format (" + st + ")." };
+        } else {
+            return { valid: false, cleaned, message: "Unrecognized Indian State code: '" + st + "'." };
+        }
+    }
+
+    return { valid: false, cleaned, message: "Format does not match standard Indian plate (e.g. TN07AB1234)." };
+}
+
+function toggleInputMode(tab, mode) {
+    const scanBtn = document.getElementById(tab + 'ModeScanBtn');
+    const manualBtn = document.getElementById(tab + 'ModeManualBtn');
+    const camSection = document.getElementById(tab + 'CameraSection');
+
+    if (mode === 'scan') {
+        scanBtn.classList.add('active');
+        manualBtn.classList.remove('active');
+        camSection.style.display = 'block';
+    } else {
+        manualBtn.classList.add('active');
+        scanBtn.classList.remove('active');
+        camSection.style.display = 'none';
+        stopCamera(tab);
+    }
+}
+
+async function startCamera(tab) {
+    const video = document.getElementById(tab + 'Video');
+    const placeholder = document.getElementById(tab + 'CameraPlaceholder');
+    const overlay = document.getElementById(tab + 'ScannerOverlay');
+    const capturedImg = document.getElementById(tab + 'CapturedImg');
+    const errBox = document.getElementById(tab + 'CameraError');
+    const startBtn = document.getElementById(tab + 'StartCamBtn');
+    const captureBtn = document.getElementById(tab + 'CaptureBtn');
+    const retakeBtn = document.getElementById(tab + 'RetakeBtn');
+    const submitBtn = document.getElementById(tab + 'SubmitOcrBtn');
+
+    errBox.style.display = 'none';
+    capturedImg.style.display = 'none';
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        errBox.textContent = 'Camera API is not supported on this browser/environment. Please use the Upload Image option or Manual Entry.';
+        errBox.style.display = 'flex';
+        return;
+    }
+
+    try {
+        stopCamera(tab);
+        const constraints = {
+            video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        cameraStreams[tab] = stream;
+        video.srcObject = stream;
+        await video.play();
+
+        placeholder.style.display = 'none';
+        video.style.display = 'block';
+        overlay.style.display = 'flex';
+
+        startBtn.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
+        retakeBtn.style.display = 'none';
+        submitBtn.style.display = 'none';
+    } catch (err) {
+        console.error('Camera access error:', err);
+        let msg = 'Could not access camera.';
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            msg = 'Camera permission was denied. Please allow camera permissions in browser settings or use Upload Image.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            msg = 'No camera hardware found on this device. You can upload an image or type the number manually.';
+        } else {
+            msg = 'Camera error (' + (err.message || err.name) + '). Please use Upload Image or Manual Entry.';
+        }
+        errBox.textContent = msg;
+        errBox.style.display = 'flex';
+    }
+}
+
+function stopCamera(tab) {
+    if (cameraStreams[tab]) {
+        cameraStreams[tab].getTracks().forEach(t => t.stop());
+        cameraStreams[tab] = null;
+    }
+    const video = document.getElementById(tab + 'Video');
+    if (video) {
+        video.srcObject = null;
+        video.style.display = 'none';
+    }
+    const overlay = document.getElementById(tab + 'ScannerOverlay');
+    if (overlay) overlay.style.display = 'none';
+    const placeholder = document.getElementById(tab + 'CameraPlaceholder');
+    if (placeholder) placeholder.style.display = 'block';
+    const startBtn = document.getElementById(tab + 'StartCamBtn');
+    if (startBtn) startBtn.style.display = 'inline-block';
+    const captureBtn = document.getElementById(tab + 'CaptureBtn');
+    if (captureBtn) captureBtn.style.display = 'none';
+}
+
+function stopAllCameras() {
+    stopCamera('entry');
+    stopCamera('exit');
+}
+
+function captureCameraPhoto(tab) {
+    const video = document.getElementById(tab + 'Video');
+    const canvas = document.getElementById(tab + 'Canvas');
+    const capturedImg = document.getElementById(tab + 'CapturedImg');
+    const overlay = document.getElementById(tab + 'ScannerOverlay');
+    const captureBtn = document.getElementById(tab + 'CaptureBtn');
+    const retakeBtn = document.getElementById(tab + 'RetakeBtn');
+    const submitBtn = document.getElementById(tab + 'SubmitOcrBtn');
+
+    if (!video.videoWidth || !video.videoHeight) {
+        alert('Camera stream is not ready yet. Please wait a second.');
+        return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(blob => {
+        capturedBlobs[tab] = blob;
+        capturedImg.src = URL.createObjectURL(blob);
+        capturedImg.style.display = 'block';
+        video.style.display = 'none';
+        overlay.style.display = 'none';
+
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'inline-block';
+        submitBtn.style.display = 'inline-block';
+    }, 'image/jpeg', 0.95);
+}
+
+function retakeCameraPhoto(tab) {
+    const video = document.getElementById(tab + 'Video');
+    const capturedImg = document.getElementById(tab + 'CapturedImg');
+    const overlay = document.getElementById(tab + 'ScannerOverlay');
+    const captureBtn = document.getElementById(tab + 'CaptureBtn');
+    const retakeBtn = document.getElementById(tab + 'RetakeBtn');
+    const submitBtn = document.getElementById(tab + 'SubmitOcrBtn');
+
+    capturedImg.style.display = 'none';
+    video.style.display = 'block';
+    overlay.style.display = 'flex';
+
+    captureBtn.style.display = 'inline-block';
+    retakeBtn.style.display = 'none';
+    submitBtn.style.display = 'none';
+    capturedBlobs[tab] = null;
+}
+
+function handleImageFileChosen(event, tab) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    capturedBlobs[tab] = file;
+    const capturedImg = document.getElementById(tab + 'CapturedImg');
+    const video = document.getElementById(tab + 'Video');
+    const placeholder = document.getElementById(tab + 'CameraPlaceholder');
+    const overlay = document.getElementById(tab + 'ScannerOverlay');
+    const startBtn = document.getElementById(tab + 'StartCamBtn');
+    const captureBtn = document.getElementById(tab + 'CaptureBtn');
+    const retakeBtn = document.getElementById(tab + 'RetakeBtn');
+    const submitBtn = document.getElementById(tab + 'SubmitOcrBtn');
+
+    stopCamera(tab);
+    if (placeholder) placeholder.style.display = 'none';
+    if (video) video.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+
+    capturedImg.src = URL.createObjectURL(file);
+    capturedImg.style.display = 'block';
+
+    if (startBtn) startBtn.style.display = 'none';
+    if (captureBtn) captureBtn.style.display = 'none';
+    if (retakeBtn) retakeBtn.style.display = 'inline-block';
+    if (submitBtn) submitBtn.style.display = 'inline-block';
+}
+
+async function submitImageForOcr(tab) {
+    const blob = capturedBlobs[tab];
+    if (!blob) {
+        alert('Please capture or upload an image first.');
+        return;
+    }
+
+    const spinner = document.getElementById(tab + 'OcrSpinner');
+    const errBox = document.getElementById(tab + 'CameraError');
+    const inputElem = tab === 'entry' ?
+        document.getElementById('entryVehicleNumber') :
+        document.getElementById('exitVehicleSearchInput');
+
+    spinner.style.display = 'block';
+    errBox.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('image', blob, 'plate.jpg');
+
+    try {
+        const resp = await fetch('/api/anpr/recognize', {
+            method: 'POST',
+            body: formData
+        });
+        const res = await resp.json();
+        spinner.style.display = 'none';
+
+        if (res.success && res.data) {
+            const anpr = res.data;
+            if (anpr.vehicleNumber && anpr.vehicleNumber.trim()) {
+                inputElem.value = anpr.vehicleNumber;
+                onVehicleNumberChanged(tab, anpr.confidence);
+            } else {
+                errBox.textContent = anpr.validationMessage || 'Number plate could not be clearly recognized. Please adjust camera angle or enter manually.';
+                errBox.style.display = 'flex';
+                onVehicleNumberChanged(tab);
+            }
+        } else {
+            errBox.textContent = res.message || 'Recognition failed. Please try again or type manually.';
+            errBox.style.display = 'flex';
+        }
+    } catch (err) {
+        spinner.style.display = 'none';
+        console.error('ANPR request failed:', err);
+        errBox.textContent = 'Error connecting to ANPR recognition service. Please check connection or use manual entry.';
+        errBox.style.display = 'flex';
+    }
+}
+
+function onVehicleNumberChanged(tab, confidenceStr) {
+    const inputElem = tab === 'entry' ?
+        document.getElementById('entryVehicleNumber') :
+        document.getElementById('exitVehicleSearchInput');
+    const feedback = document.getElementById(tab + 'ValidationFeedback');
+    const confBadge = document.getElementById(tab + 'ConfidenceBadge');
+    const fmtBadge = document.getElementById(tab + 'FormatBadge');
+
+    const raw = inputElem.value;
+    if (!raw.trim()) {
+        feedback.style.display = 'none';
+        if (confBadge) confBadge.style.display = 'none';
+        if (fmtBadge) fmtBadge.style.display = 'none';
+        return;
+    }
+
+    if (confidenceStr) {
+        confBadge.textContent = 'OCR: ' + confidenceStr;
+        confBadge.style.display = 'inline-block';
+    }
+
+    const val = validateIndianRegistration(raw);
+    feedback.style.display = 'flex';
+
+    if (val.valid) {
+        feedback.className = 'validation-feedback valid';
+        feedback.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + val.message;
+        if (fmtBadge) {
+            fmtBadge.textContent = val.formatType;
+            fmtBadge.className = 'badge badge-success';
+            fmtBadge.style.display = 'inline-block';
+        }
+    } else {
+        feedback.className = 'validation-feedback invalid';
+        feedback.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + val.message;
+        if (fmtBadge) {
+            fmtBadge.textContent = 'Invalid Format';
+            fmtBadge.className = 'badge badge-danger';
+            fmtBadge.style.display = 'inline-block';
+        }
+    }
+}
+
 // Vehicle Entry Registration
 async function handleVehicleEntry(e) {
     e.preventDefault();
-    const vehicleNumber = document.getElementById('entryVehicleNumber').value.trim().toUpperCase();
+    const rawNumber = document.getElementById('entryVehicleNumber').value;
     const vehicleType = document.getElementById('entryVehicleType').value;
     const preferredSlotNumber = document.getElementById('entryPreferredSlot').value.trim();
 
-    if (!vehicleNumber) {
-        alert('Vehicle number is required.');
+    const val = validateIndianRegistration(rawNumber);
+    if (!val.valid) {
+        alert('Invalid Indian Vehicle Registration Number:\n' + val.message);
         return;
     }
 
-    const formatRegex = /^[A-Z0-9]{4,15}$/;
-    if (!formatRegex.test(vehicleNumber)) {
-        alert('Invalid vehicle number format. Must be 4 to 15 alphanumeric characters.');
-        return;
-    }
+    const vehicleNumber = val.cleaned;
 
     try {
         const resp = await fetch('/api/vehicles/entry', {
@@ -221,6 +538,10 @@ async function handleVehicleEntry(e) {
             alert('Vehicle Parked Successfully!\nAssigned Slot: ' + res.data.slotNumber);
             document.getElementById('entryVehicleNumber').value = '';
             document.getElementById('entryPreferredSlot').value = '';
+            document.getElementById('entryValidationFeedback').style.display = 'none';
+            document.getElementById('entryConfidenceBadge').style.display = 'none';
+            document.getElementById('entryFormatBadge').style.display = 'none';
+            stopCamera('entry');
             switchView('dashboard');
         } else {
             alert('Parking Error: ' + (res.message || 'Unknown error from server.'));
@@ -233,11 +554,19 @@ async function handleVehicleEntry(e) {
 
 // Vehicle Exit Lookup & Calculation
 async function lookupExitVehicle() {
-    const plate = document.getElementById('exitVehicleSearchInput').value.trim().toUpperCase();
-    if (!plate) {
-        alert('Please enter a vehicle number.');
+    const rawPlate = document.getElementById('exitVehicleSearchInput').value;
+    if (!rawPlate || !rawPlate.trim()) {
+        alert('Please enter or scan a vehicle number.');
         return;
     }
+
+    const val = validateIndianRegistration(rawPlate);
+    if (!val.valid) {
+        alert('Invalid Indian Vehicle Registration Number:\n' + val.message);
+        return;
+    }
+
+    const plate = val.cleaned;
 
     try {
         const resp = await fetch('/api/vehicles/' + encodeURIComponent(plate));
@@ -291,6 +620,10 @@ async function confirmVehicleExit() {
             showReceiptModal(res.data);
             document.getElementById('exitBillDetailsCard').style.display = 'none';
             document.getElementById('exitVehicleSearchInput').value = '';
+            document.getElementById('exitValidationFeedback').style.display = 'none';
+            document.getElementById('exitConfidenceBadge').style.display = 'none';
+            document.getElementById('exitFormatBadge').style.display = 'none';
+            stopCamera('exit');
             currentExitRecord = null;
         } else {
             alert('Exit failed: ' + res.message);

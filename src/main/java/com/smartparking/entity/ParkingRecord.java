@@ -14,6 +14,8 @@ public class ParkingRecord {
     private Long durationMinutes;
     private BigDecimal parkingFee;
     private ParkingRecordStatus status = ParkingRecordStatus.PARKED;
+    private String enteredBy;
+    private String exitedBy;
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public ParkingRecord() {}
@@ -23,6 +25,15 @@ public class ParkingRecord {
         this.slot = slot;
         this.entryTime = entryTime;
         this.status = status;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public ParkingRecord(Vehicle vehicle, ParkingSlot slot, LocalDateTime entryTime, ParkingRecordStatus status, String enteredBy) {
+        this.vehicle = vehicle;
+        this.slot = slot;
+        this.entryTime = entryTime;
+        this.status = status;
+        this.enteredBy = enteredBy;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -36,6 +47,21 @@ public class ParkingRecord {
         this.durationMinutes = durationMinutes;
         this.parkingFee = parkingFee;
         this.status = status;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+    }
+
+    public ParkingRecord(Long id, Vehicle vehicle, ParkingSlot slot, LocalDateTime entryTime, LocalDateTime exitTime,
+                         Long durationMinutes, BigDecimal parkingFee, ParkingRecordStatus status, String enteredBy, String exitedBy, LocalDateTime createdAt) {
+        this.id = id;
+        this.vehicle = vehicle;
+        this.slot = slot;
+        this.entryTime = entryTime;
+        this.exitTime = exitTime;
+        this.durationMinutes = durationMinutes;
+        this.parkingFee = parkingFee;
+        this.status = status;
+        this.enteredBy = enteredBy;
+        this.exitedBy = exitedBy;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
     }
 
@@ -62,6 +88,12 @@ public class ParkingRecord {
 
     public ParkingRecordStatus getStatus() { return status; }
     public void setStatus(ParkingRecordStatus status) { this.status = status; }
+
+    public String getEnteredBy() { return enteredBy; }
+    public void setEnteredBy(String enteredBy) { this.enteredBy = enteredBy; }
+
+    public String getExitedBy() { return exitedBy; }
+    public void setExitedBy(String exitedBy) { this.exitedBy = exitedBy; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
